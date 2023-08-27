@@ -14,8 +14,6 @@ import pickle
 import sv_ttk
 import customtkinter
 
-palm.configure(api_key='AIzaSyBUcYtKd9t5gWmagc3Nje8rKm-20iMaSZo')
-
 
 class Chatbot:
 
@@ -193,7 +191,6 @@ class ChatbotGUI:
     def speak(self, event=None):
         filename = "api_key"
         user_input = self.user_input.get()  # Get the value from the StringVar
-        response = self.chatbot_instance.bot_response(user_input)
         if user_input:
             try:
                 if os.path.isfile(filename):
@@ -205,6 +202,9 @@ class ChatbotGUI:
                     # Query Chatbot
                     # Define our API Key to Chatbot
                     palm.configure(api_key=stuff)  # We put our API Key into 'stuff'
+
+                    # Send user_input to 'Chatbot' Class and return 'response'
+                    response = self.chatbot_instance.bot_response(user_input)
 
                     # Clear Users Textbox
                     # chat_entry.delete(0, END)
