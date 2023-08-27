@@ -10,7 +10,8 @@ Starter Roadmap:
 2. Create Chatbot
 3. Add Context and Conversation Hisotry to Chatbot Conversation. 
 4. Create Text Replacement Program GUI
-5. Create Text Replacement Program
-6. Incorporate 'State_Questions' - for chatbot to ask during client sessions
-7. Create a Toggle for 'PT Mode' & 'Normal (chat) Mode'
+5. Create Text Replacement Program with .txt file
+6. Text Replacement Program - Transition to using JSON files
+7. Incorporate 'State_Questions' - for chatbot to ask during client sessions
+8. Create a Toggle for 'PT Mode' & 'Normal (chat) Mode'
   - This would hopefully change weather the chatbot focuses primarily on PT Note Documentation
