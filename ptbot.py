@@ -12,19 +12,20 @@ import tkinter as tk
 import google.generativeai as palm
 import pickle
 import sv_ttk
-import customtkinter
+# import customtkinter
+import json
+
+restart_program_flag = False
+key_sequence = ""
+key_presses = 0  # Counter for the number of key presses without detection
 
 
-class Chatbot:
+class Chatbot:  ##################################################################
 
     def __init__(self, parent, my_text):
-        # self.full_conversation = None
-        # self.get_conversation_history = None
-        # self.response_generator = None
         self.parent = parent  # Store a reference to the parent ChatbotGUI instance
         self.response = None
         self.my_text = my_text
-        # self.chatbotgui_instance = ChatbotGUI(self)
 
     # Implement Chat History Logic
     def get_conversation_history(self):
@@ -51,26 +52,245 @@ class Chatbot:
     def bot_response(self, user_input):
         try:
             full_conversation = self.full_conversation(user_input)
-            response = palm.chat(
-                model='models/chat-bison-001',
-                messages=full_conversation)
-            return response  # Return the last response from the model
+            if self.response is None:
+                self.response = palm.chat(
+                    model='models/chat-bison-001',
+                    messages=full_conversation)
+            else:
+                self.response = self.response.reply(user_input)
+            return self.response  # Return the last response from the model
         except Exception as e:
             return f"There was an error with bot_response: {e}"
 
 
 class TextReplacement:
+    class TextReplacementLogic:  ##################################################################
+        def __init__(self, parent):
+            self.parent = parent
+            self.replacements = {}  # Define Replacements Dictionary
+
+            pass
+
+        def replace_text(self, input_text):
+            # Implement text replacement logic
+            global restart_program_flag, key_sequence, key_presses
+
+            # Open and read the json file
+            with open('replacements.json', 'r') as file:
+                # replacements = dict(line.strip().split(':') for line in file)
+                # Load in the json file
+                replacements = json.load(file)
+
+            key_lengths = {key: len(key) for key in replacements}
+
+            def on_press(event):
+                global restart_program_flag, key_sequence, key_presses
+
+                if event.name == "r" and keyboard.is_pressed("ctrl"):  # Check for Ctrl + R
+                    restart_program_flag = True
+                    return
+
+                if event.event_type == keyboard.KEY_DOWN:
+                    key_name = event.name.lower()
+
+                    if key_name in ("enter", "shift", "space", "backspace", "alt", "caps"):
+                        return
+
+                    key_sequence += key_name
+                    key_presses += 1  # Increment the counter
+                    print(f"Key pressed: {key_sequence}")
+
+                    for key in replacements:
+                        if key in key_sequence:
+                            remove_original_key_sequence(key_lengths.get(key, 0))
+                            replacement = replacements[key]
+                            replace_with_text(replacement)
+                            print(f"Detected key press: {key_sequence} (Replaced with: {replacement})")
+                            key_sequence = ""  # Reset the key sequence
+                            key_presses = 0  # Reset the counter
+                            return
+
+        def monitor_key_presses(self):
+            global restart_program_flag, key_sequence, key_presses
+
+            keyboard.on_press(on_press)
+
+            try:
+                while True:
+                    if key_presses >= 25:
+                        print("Woah, We have more than 25 Key Presses!")
+                        key_sequence = ""  # Reset the key sequence
+                        key_presses = 0  # Reset the counter
+                    if restart_program_flag:
+                        print("Program is Restarting...")
+                        keyboard.unhook_all()
+                        restart_program()
+                        restart_program_flag = False  # Reset the restart flag
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+
+        # Create Function to 'backspace' same # of times as 'key' character length
+        def remove_original_key_sequence(self, num_backspaces):
+            for _ in range(num_backspaces):
+                keyboard.press_and_release("backspace")
+
+        # Remove 'key' and write the 'replacement'
+        def replace_with_text(self, text):
+            remove_original_key_sequence(key_lengths.get(key_sequence, 0))
+            keyboard.write(text)
+
+        # Function to restart program
+        def restart_program(self):
+            python = sys.executable
+            os.startfile(__file__)
+            time.sleep(0.4)
+            sys.exit()
+
+        # def add_key(self, key):
+        #     try:
+        #         self.replacements[key] = ""
+        #         self.save_json(self.replacements, 'replacements.json')
+        #         print(f"Key '{key}' added")
+        #     except Exception as e:
+        #         print(f"Error adding key: {e}")
+        #
+        #
+        # def add_replacement(self, key, replacement):
+        #     try:
+        #         if key in self.replacements:
+        #             self.replacements[key] = replacement
+        #             self.save_json(replacements, 'replacements.json')
+        #             print(f"Replacement for key '{key}' added.")
+        #         else:
+        #             print(f"Key Not Found")
+        #     except Exception as e:
+        #         print(f"Error adding replacement: {e}")
+
+        def add_key(self, key):
+            try:
+                self.replacements[key] = ""
+                self.save_json()
+                print(f"Key '{key}' added")
+            except Exception as e:
+                print(f"Error adding key: {e}")
+
+        def add_replacement(self, key, replacement):
+            try:
+                if key in self.replacements:
+                    self.replacements[key] = replacement
+                    self.save_json()
+                    print(f"Replacement for key '{key}' added.")
+                else:
+                    print(f"Key Not Found")
+            except Exception as e:
+                print(f"Error adding replacement: {e}")
+
+    class TextReplacementGUI:  ##################################################################
+        def __init__(self, parent):
+            self.parent = parent
+            self.frame = ttk.Frame(self.parent)
+            self.init_text_replacement_gui()
+            self.my_display_text = None
+            self.key_entry = None
+            self.key_input = tk.StringVar()
+            self.phrase_entry = None
+            self.phrase_input = tk.StringVar()
+            self.json_filename = 'replacements.json'
+            self.replacements = {}  # Define Replacements Dictionary
+
+        def init_text_replacement_gui(self):
+            self.frame.grid(row=0, column=0, sticky="nsew")
+            # ... create text replacement GUI elements
+
+            # Create Button Frame
+            button_frame_1 = ttk.Frame(self.frame, padding=5)
+            button_frame_1.pack()
+
+            # # Create Button Frame
+            btn_phrase_submit = ttk.Button(button_frame_1,
+                                           text="Submit",
+                                           command=self.gui.submit_key_replacement)
+            btn_phrase_submit.grid(row=0, column=0, padx=10)
+
+            # Create Key & Phrase 'Save All' Button
+            btn_save = ttk.Button(button_frame_1,
+                                  text="Save All",
+                                  command=self.gui.save_json)
+            btn_save.grid(row=0, column=1, padx=10)
+
+            # Create Key and Phrase Entry Frame
+            key_phrase_entry_frame = ttk.Frame(self.frame, padding=5)
+            key_phrase_entry_frame.pack()
+
+            # Create Key Entry
+            self.key_input = tk.StringVar()  # Declaring String Variable
+            self.key_entry = ttk.Entry(key_phrase_entry_frame,
+                                       width=100,
+                                       textvariable=self.gui.key_input)
+            self.key_entry.grid(row=0, column=0)
+
+            # Create Phrase Entry
+            self.phrase_input = tk.StringVar()
+            self.phrase_entry = ttk.Entry(key_phrase_entry_frame,
+                                          width=100,
+                                          textvariable=self.gui.phrase_input)
+            self.phrase_entry.grid(row=1, column=0)
+
+            # Create Textbox to Display JSON File Data
+            self.my_display_text = tkinter.Text(self.frame,
+                                                bg="#343638",  # Darker grey background color of textbox.
+                                                width=100,
+                                                height=30,
+                                                bd=1,  # boarder width, making it small.
+                                                fg="#d6d6d6",  # light grey color of the text.
+                                                relief="flat",  # gets rid of the white line around the textbox.
+                                                wrap=WORD,  # wraps whole words instead of partial words
+                                                selectbackground="#1f538d"  # Bluish color when selecting text.
+                                                )
+            self.my_display_text.pack()
+
+        # Create method from the GUI component to update the displayed data
+        def gui_update_displayed_data(self):
+            pass
+
+        def show(self):
+            self.frame.pack(fill='both', expand=True)
+
     def __init__(self):
-        # Initialize text replacement related variables
-        # input_text=
-        pass
+        self.root = Tk()
+        self.gui = self.TextReplacementGUI(self)
+        self.logic = self.TextReplacementLogic(self)
 
-    def replace_text(self, input_text):
-        # Implement text replacement logic
-        pass
+    def run(self):
+        self.root.mainloop()
+
+    # 'Write' the 'key' and 'replacement' to the JSON file
+    def submit_key_replacement(self, event=None):
+        key_input = self.key_input.get()
+        phrase_input = self.phrase_input.get()
+
+        if key_input and phrase_input:
+            try:
+                self.add_key(key_input)
+                self.add_replacement(key_input, phrase_input)
+                print("Key and Replacement Added.")
+            except Exception as e:
+                self.show_error_message(e)
+
+        else:
+            print("You Forgot to Type Something!")
+
+    def save_json(self):
+        try:
+            with open(self.json_filename, 'w') as json_file:
+                json.dump(self.replacements, json_file, indent=4)
+            print("JSON data saved to file.")
+        except Exception as e:
+            self.show_error_message(e)
 
 
-class ChatbotGUI:
+class ChatbotGUI:  ##################################################################
 
     def __init__(self, parent):
         self.api_key = None
@@ -99,16 +319,16 @@ class ChatbotGUI:
         text_box_label.grid(row=1, column=0)
 
         # Add Text Widget To Get PaLM ChatBot Responses
-        self.my_text = Text(text_frame,
-                            bg="#343638",  # Darker grey background color of textbox.
-                            width=100,
-                            height=30,
-                            bd=1,  # boarder width, making it small.
-                            fg="#d6d6d6",  # light grey color of the text.
-                            relief="flat",  # gets rid of the white line around the textbox.
-                            wrap=WORD,  # wraps whole words instead of partial words
-                            selectbackground="#1f538d"  # Bluish color when selecting text.
-                            )
+        self.my_text = tk.Text(text_frame,
+                               bg="#343638",  # Darker grey background color of textbox.
+                               width=100,
+                               height=30,
+                               bd=1,  # boarder width, making it small.
+                               fg="#d6d6d6",  # light grey color of the text.
+                               relief="flat",  # gets rid of the white line around the textbox.
+                               wrap=WORD,  # wraps whole words instead of partial words
+                               selectbackground="#1f538d"  # Bluish color when selecting text.
+                               )
         self.my_text.grid(row=1, column=0)
 
         # Create Scrollbar for Text Widget
@@ -128,7 +348,7 @@ class ChatbotGUI:
         self.chat_entry.grid(row=3, column=0)
 
         # Bind the <Return> key press event to the entry widget
-        # self.chat_entry.bind("<Return>", self.speak)
+        self.chat_entry.bind("<Return>", self.speak)
 
         # Create Button Frame
         button_frame = ttk.Frame(self.frame, padding=10)
@@ -207,7 +427,7 @@ class ChatbotGUI:
                     response = self.chatbot_instance.bot_response(user_input)
 
                     # Clear Users Textbox
-                    # chat_entry.delete(0, END)
+                    self.chat_entry.delete(0, END)
 
                     self.my_text.insert(END, "You: " + user_input + "\n\n")
                     self.my_text.insert(END, "ChatBot: " + response.last + "\n\n")
@@ -290,18 +510,13 @@ class ChatbotGUI:
         self.frame.pack(fill='both', expand=True)
 
 
-class TextReplacementGUI:
-    def __init__(self, parent):
-        self.parent = parent
-        self.frame = ttk.Frame(parent)
-        self.init_text_replacement_gui()
+def show_error_message():
+    error_text = str({e})
+    messagebox.showerror("Error", error_text)
 
-    def init_text_replacement_gui(self):
-        self.frame.grid(row=0, column=0, sticky="nsew")
-        # ... create text replacement GUI elements
 
-    def show(self):
-        self.frame.pack(fill='both', expand=True)
+# outer = TextReplacement()
+# d1 = outer.TextReplacementGUI
 
 
 def main():
@@ -329,12 +544,18 @@ def main():
     # Create the Notebook widget
     notebook = ttk.Notebook(notebook_frame)
     chatbot_tab = ChatbotGUI(notebook)
-    text_replacement_tab = TextReplacementGUI(notebook)
+    # text_replacement_tab = d1(notebook)
+
+    # Create an instance of TextReplacement
+    text_replacement_instance = TextReplacement()
+    text_replacement_tab = text_replacement_instance.gui
+
+    # Create an instance of TextReplacement
+    # text_replacement_instance = TextReplacement()
 
     # Add tabs to the Notebook
     notebook.add(chatbot_tab.frame, text="Chatbot")
     notebook.add(text_replacement_tab.frame, text="Text Replacement")
-
     notebook.pack(fill='both', expand=True)
 
     root.mainloop()
@@ -342,3 +563,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    monitor_key_presses()  # Monitor key presses
