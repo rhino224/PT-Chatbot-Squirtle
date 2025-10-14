@@ -14,4 +14,4 @@ Starter Roadmap:
 6. Text Replacement Program - Transition to using JSON files
 7. Incorporate 'State_Questions' - for chatbot to ask during client sessions
 8. Create a Toggle for 'PT Mode' & 'Normal (chat) Mode'
-  - This would hopefully change weather the chatbot focuses primarily on PT Note Documentation
+  - This would hopefully change whether the chatbot focuses primarily on PT Note Documentation
